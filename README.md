@@ -1,11 +1,13 @@
 # Household Checklist
 
-Version one of the household checklist / home maintenance binder.
+Household checklist / home maintenance binder.
 
 ## Files
 
-- `index.html` - standalone checklist app
+- `index.html` - default GitHub Pages entry; currently the Cal Tasks edition
+- `home-maintenance-binder-cal.html` - Cal Tasks edition
+- `home-maintenance-binder.html` - standard edition
 
 ## Notes
 
-This repo starts from `home-maintenance-binder-cal.html` as the first published version.
+GitHub Pages serves the default checklist from the repo root.
