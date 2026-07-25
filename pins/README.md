@@ -35,12 +35,16 @@ JSON. Import merges a backup back in.
 
 ## Rebuilding the catalog
 
-Research output goes in a directory as one JSON file per segment, shaped
-`{"segment": "...", "pins": [...]}`, following `SCHEMA.md`. Then:
+The research JSON that produced the current catalog is committed in
+`research/` — one file per segment, shaped `{"segment": "...", "pins": [...]}`
+and following `SCHEMA.md`. To rebuild from it:
 
 ```sh
-python3 tools/build_catalog.py --research path/to/research
+python3 tools/build_catalog.py --research research
 ```
+
+To add pins, drop another segment file in `research/` and re-run. Files whose
+names start with `_` are ignored, so a research pass can keep scratch there.
 
 The script normalises every record, enforces the controlled vocabularies,
 de-duplicates on both id and name+series+year, merges partial duplicates
@@ -51,19 +55,88 @@ Validation catches, among other things: unknown franchise/edition/rarity
 values, implausible years, negative or inverted price ranges, and records
 citing no sources at all.
 
+## What's actually in the catalog
+
+403 pins across six research segments:
+
+| Segment | Pins | What it covers |
+|---------|-----:|----------------|
+| `board-disney` | 34 | Disney items identified from the board photo |
+| `board-wizarding` | 19 | Wizarding World items from the board photo (incl. 5 non-pin pieces) |
+| `ear-headbands` | 94 | Ear-headband pin series across Loungefly/BoxLunch, Hidden Disney and park lines |
+| `flagship` | 159 | Hidden Mickey, Disney100, passholder, princess, villains, Star Wars, Marvel, grails |
+| `main-attraction-castles` | 48 | The complete Minnie (2020) and Mickey (2022) *The Main Attraction* runs, plus castles |
+| `letters-dangles-food` | 49 | Letter/alphabet pins, tassel bookmark pins, boba and food pins |
+
+53 of those are marked as physically on the board.
+
+**Price coverage is the weak spot: only 15 of 403 pins (3%) carry a market
+value.** That is a research limitation, not a design one — see below. The
+sold-comp log exists precisely to close this gap over time.
+
+### Known open questions in the data
+
+These are recorded rather than resolved, and are worth knowing before trusting
+a record:
+
+- **The ear-headband grid has two competing identifications.** The segment that
+  examined the photo at magnification reports Hidden Mickey icons on the pins
+  and places them in the *Hidden Disney 2025 Wave A: Ear Headbands* cast-lanyard
+  sets (WDW and Disneyland). The segment that researched ear-headband series
+  without the photo places them in the *Loungefly/BoxLunch Minnie Ears Headband*
+  blind-box waves. Both series are in the catalog; the board records follow the
+  photo-based reading, which is the better evidence for these specific pins.
+- **The four "D" pins are probably four different letters**, not four D's —
+  most likely D/E/N plus one more from the *Character Alphabet Mystery
+  Collection* (D=Dumbo, E=Elsa, N=Nala, and a fourth with goblets). That reading
+  is the only one that explains a Frozen + Dumbo + Lion King combination.
+- **Loungefly Series 1 and 2 have two conflicting naming conventions** (PinPics
+  uses bow/finish names, Pin Trading Database uses flat colours). Individual
+  positions in those sets are not authoritative.
+- **Hidden Disney 2026 Wave A resort attribution is contradictory** across
+  sources; likely two separate sets conflated.
+- **The Disney Cruise Line ship, teal mermaid-scale, and white-bow-with-pink-
+  Minnie headbands were never placed** to a series. The three gold-tone floral
+  headbands on the bottom row are also unidentified.
+- **Two board items were never researched at all** — the Walt Disney Family
+  Museum logo pin and the sushi-in-a-hat food pin — because the search budget
+  ran out. They are absent rather than guessed at.
+
+Records carry `confidence` (identification) and `price_confidence` separately.
+A great many are `low`, and that is deliberate honesty: a descriptive name with
+null fields is more useful than an invented official product name.
+
 ## Honest limits
 
 - **There is no complete Disney pin database.** No public API exists. PinPics is
   the closest thing and it has neither an API nor terms that permit scraping.
   This catalog is a curated seed that grows — not an exhaustive index, and it
   never will be one.
-- **Prices are researched observations, not a live feed.** A static page can't
-  query eBay from the browser (API keys, CORS). The price-check buttons take
-  you to real sold-listing searches instead, which is the honest version of
-  "current price". Recorded values carry a `price_confidence` field — treat
-  `low` as a rough hint.
-- **Counterfeits ("scrappers") distort the market.** A cheap sold comp is often
-  a fake. Check the backstamp before trusting a low price.
+- **There is no legitimate route to automated sold prices.** eBay's
+  Marketplace Insights API is the correct one for sold comps and access
+  "cannot be granted upon request"; the old Finding API `findCompletedItems`
+  was restricted in 2020 and decommissioned in Feb 2025; the free Browse API
+  explicitly cannot see sold listings. Mercari, PinPics and Pinvault have no
+  public API at all. So the price-check buttons open real sold-listing
+  searches in your browser, and the comp log lets you keep what you find.
+  That combination is the honest version of "current price".
+- **Counterfeits ("scrappers") make raw sold data bimodal.** Fakes cluster
+  around $2–8 on exactly the most desirable designs, so the *median* of raw
+  eBay sold results is close to worthless — you want the upper cluster. Hence
+  the "$10+" sold link, the range-rather-than-a-number display, and the
+  warning on low-confidence estimates. A $6 sale on an LE 250 pin is a fake,
+  not a data point.
+- **Condition and backer card are priced separately** by collectors: damage
+  runs −40–70%, and losing only a special backer card can cost ~50% on its
+  own. They're separate fields for that reason.
+- **Why price coverage is only 3%.** This environment's network policy blocks
+  every commerce and collector host at the gateway (eBay, Mercari, PinPics,
+  DisneyPinsBlog, Reddit — all 403 at CONNECT), and the session's web-search
+  budget was exhausted. Research therefore ran on search-result summaries with
+  no page ever fetched, so no sold comps could be recorded. **This limits only
+  our pre-recorded values — it does not affect the app**, whose price checks
+  run in your browser. Filling the price fields needs either a session with
+  those hosts reachable, or you logging comps as you go.
 
 ## Roadmap to an app
 
@@ -85,11 +158,17 @@ somewhere to host. Everything before them is free.
 
 ```
 pins/
-├── index.html              app shell
-├── css/app.css             styles (dark + light)
-├── js/app.js               all application logic
-├── data/catalog.js         GENERATED pin catalog
-├── data/sources.js         GENERATED price-check URL templates
-├── tools/build_catalog.py  research JSON → catalog
-└── SCHEMA.md               the pin record schema
+├── index.html                app shell
+├── css/app.css               styles (dark + light)
+├── js/app.js                 all application logic
+├── data/catalog.js           GENERATED pin catalog — do not hand-edit
+├── data/sources.js           GENERATED price-check URL templates
+├── research/*.json           source research, one file per segment
+├── tools/build_catalog.py    research JSON → catalog
+├── docs/price-research.md    how pin pricing works: APIs, sources, valuation
+└── SCHEMA.md                 the pin record schema
 ```
+
+Verified in Chromium via Playwright: all five views render, search and facets
+filter, the comp log persists across reload, CSV exports, and both themes work
+with no console errors.

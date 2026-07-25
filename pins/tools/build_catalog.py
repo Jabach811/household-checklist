@@ -360,18 +360,25 @@ def main() -> int:
     # One source per (kind, host), so the drawer doesn't show four flavours of
     # eBay. Curated defaults are always kept — they're hand-picked variants
     # (e.g. a price-floored sold search) that would otherwise look redundant.
-    picked: dict[tuple, dict] = {}
+    ranked = sorted(sources.values(),
+                    key=lambda s: (KIND_RANK.get(s.get('kind'), 9), order.get(s['id'], 99)))
+    seen: dict[tuple, dict] = {}
     keep: list[dict] = []
-    for s in sorted(sources.values(),
-                    key=lambda s: (KIND_RANK.get(s.get('kind'), 9), order.get(s['id'], 99))):
+    # Curated defaults go in first and claim their (kind, host) slot, so a
+    # research-discovered variant of the same thing is dropped rather than
+    # sitting next to it in the drawer.
+    for s in ranked:
         if s['id'] in order:
             keep.append(s)
+            seen.setdefault((s.get('kind'), host_of(s)), s)
+    for s in ranked:
+        if s['id'] in order:
             continue
         key = (s.get('kind'), host_of(s))
-        if key in picked:
-            problems.append(f"[url-templates] {s['id']}: duplicate of {picked[key]['id']}, skipped")
+        if key in seen:
+            problems.append(f"[url-templates] {s['id']}: duplicate of {seen[key]['id']}, skipped")
             continue
-        picked[key] = s
+        seen[key] = s
         keep.append(s)
     picked = {i: s for i, s in enumerate(keep)}
     src_list = sorted(picked.values(),

@@ -693,7 +693,9 @@ function openDrawer(p) {
     el('span', { className: 'big', textContent: v == null ? '—' : money(Math.round(v)) }),
     (lo != null || hi != null)
       ? el('span', { className: 'lo-hi', textContent: `${money(lo)} – ${money(hi)}` }) : null,
-    p.price_confidence
+    // the catalog's confidence rating only describes catalog figures — don't
+    // stamp "low confidence" on a value the owner supplied themselves
+    (p.price_confidence && /researched/.test(vs.from || ''))
       ? el('span', { className: 'conf ' + p.price_confidence, textContent: p.price_confidence + ' confidence' }) : null,
   ]);
   const valueSection = el('div', { className: 'd-section' }, [el('h3', { textContent: 'Estimated value' }), pb]);

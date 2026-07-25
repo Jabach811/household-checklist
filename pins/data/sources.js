@@ -20,17 +20,6 @@ window.PIN_SOURCES = {
    "notes": "Sold above $10 \u2014 filters out most of the counterfeit cluster."
   },
   {
-   "id": "ebay-sold-pins-category",
-   "name": "eBay \u2014 sold (pins)",
-   "url_template": "https://www.ebay.com/sch/i.html?_nkw={QUERY}&_sacat=38004&LH_Sold=1&LH_Complete=1",
-   "kind": "sold-comps",
-   "notes": "38004 = 'Contemporary Disney Pins, Patches & Buttons (1968-Now)'. This is the right default category filter for modern Disney trading pins. Confirmed by many indexed eBay browse URLs of the form https://www.ebay.com/b/<slug>/38004/bn_<node>. Category scoping cuts out the pin-adjacent junk (lanyards, books, apparel) that pollutes a bare keyword comp search.",
-   "verified": false,
-   "confidence": "high",
-   "example": "https://www.ebay.com/sch/i.html?_nkw=haunted%20mansion&_sacat=38004&LH_Sold=1&LH_Complete=1",
-   "needs_image": false
-  },
-  {
    "id": "worthpoint",
    "name": "WorthPoint",
    "kind": "price-guide",
@@ -126,33 +115,11 @@ window.PIN_SOURCES = {
    "needs_image": false
   },
   {
-   "id": "google-shopping-legacy",
-   "name": "Google Shopping search (legacy tbm)",
-   "url_template": "https://www.google.com/search?tbm=shop&q={QUERY}",
-   "kind": "active-listings",
-   "notes": "The older vertical-switch form (tbm=isch/vid/nws/shop). Still widely used and generally still resolves, but Google is migrating to udm. Keep as a fallback if udm=28 misbehaves.",
-   "verified": false,
-   "confidence": "medium",
-   "example": "https://www.google.com/search?tbm=shop&q=disney%20trading%20pin",
-   "needs_image": false
-  },
-  {
    "id": "reddit-swap",
    "name": "r/DisneyPinSwap",
    "kind": "community",
    "url_template": "https://www.reddit.com/r/DisneyPinSwap/search/?q={QUERY}&restrict_sr=1&sort=new",
    "notes": "Collector sale/trade posts."
-  },
-  {
-   "id": "reddit-disneypinswap",
-   "name": "r/DisneyPinSwap search",
-   "url_template": "https://www.reddit.com/r/DisneyPinSwap/search/?q={QUERY}&restrict_sr=1&sort=new&t=all",
-   "kind": "community",
-   "notes": "restrict_sr=1 scopes results to the subreddit; sort in {new, top, relevance, hot, comments}; t in {hour, day, week, month, year, all}. Community trade/sale threads are a genuinely useful sanity check on eBay comps because swap-community prices are less scrapper-contaminated and often reflect what collectors actually pay each other.",
-   "verified": false,
-   "confidence": "high",
-   "example": "https://www.reddit.com/r/DisneyPinSwap/search/?q=oogie%20boogie%20LE%20250&restrict_sr=1&sort=new&t=all",
-   "needs_image": false
   },
   {
    "id": "google-images",
