@@ -1,9 +1,24 @@
 <!doctype html>
-<html lang="en" data-theme="dark">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Pin Board — Disney &amp; Wizarding World Pin Tracker</title>
+<script>
+/* Resolve the theme before first paint so the page never flashes the wrong
+   ground. Precedence: an explicit choice you made here > a theme the host page
+   stamped on the root > your OS preference. */
+(function () {
+  var root = document.documentElement;
+  var saved = null;
+  try { saved = (JSON.parse(localStorage.getItem('pinboard.prefs.v1')) || {}).theme; } catch (e) {}
+  if (saved) root.dataset.theme = saved;
+  else if (!root.dataset.theme) {
+    root.dataset.theme =
+      window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+})();
+</script>
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>

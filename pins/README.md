@@ -101,6 +101,24 @@ a record:
 - **Two board items were never researched at all** — the Walt Disney Family
   Museum logo pin and the sushi-in-a-hat food pin — because the search budget
   ran out. They are absent rather than guessed at.
+- **Midnight Masquerade is two different lines.** The princess line is 2019,
+  the villains line 2020. Cruella, Mother Gothel, Queen of Hearts and Dr.
+  Facilier are widely but wrongly attributed to it — they belong to the 16-pin
+  Villains Icons mystery set. Hades genuinely is a Masquerade villain and is
+  usually left off lists.
+- **Two edition sizes are left null on purpose**, with both claims in `notes`:
+  the Disneyland 65th Marquee jumbo (LE 1,000 vs 1,500) and the Avengers
+  Campus Opening Day jumbo (LE 1,000 vs 1,500).
+- **Magic Key tier pins (Dream/Believe/Enchant/Imagine/Inspire) appear not to
+  exist** as actual releases — don't model them.
+- **Edition size does not determine value.** A Disney Auctions 101 Dalmatians
+  LE 100 jumbo floors near $73 while a same-format Carousel Horse LE 100
+  clears four figures. Both are in the catalog deliberately, as a counterweight
+  to "low edition size = valuable".
+- **The Lilo & Stitch Artist Proof set's $14,250 figure is disputed** — the
+  value guide carrying it gives no source. Flagged in the record.
+- **Rise of the Resistance opening-day pins have confirmed counterfeits** in
+  circulation.
 
 Records carry `confidence` (identification) and `price_confidence` separately.
 A great many are `low`, and that is deliberate honesty: a descriptive name with

@@ -1001,8 +1001,14 @@ function wire() {
     r.readAsText(f);
   };
 
+  /* The inline head script already resolved the theme; only react to an OS
+     change if the reader hasn't made an explicit choice of their own. */
   const themeBtn = $('#theme-toggle');
-  if (PREFS.theme) document.documentElement.dataset.theme = PREFS.theme;
+  if (window.matchMedia) {
+    window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', e => {
+      if (!PREFS.theme) document.documentElement.dataset.theme = e.matches ? 'light' : 'dark';
+    });
+  }
   themeBtn.onclick = () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
