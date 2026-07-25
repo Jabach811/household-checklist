@@ -1,0 +1,214 @@
+{
+  "_meta": {
+    "generated": "2026-07-25",
+    "verification_status": "NONE_LIVE_VERIFIED",
+    "verification_note": "No URL in this file could be live-verified from the research environment. WebFetch is blocked at the egress gateway for every host tested (eBay, Mercari, Etsy, shopDisney, WorthPoint, PinPics, Pinvault, Reddit, developer.ebay.com, and even example.com all returned HTTP 403), and Bash curl is denied at the CONNECT stage by org egress policy for the same hosts. Every template below is therefore marked verified:false. The 'confidence' field states how strongly the URL shape is corroborated by documentation, indexed URLs surfaced in search results, or multiple independent write-ups. Anything below 'high' MUST be smoke-tested in a real browser before shipping.",
+    "confidence_scale": {
+      "high": "URL shape corroborated by multiple independent sources and/or an actual indexed URL of that exact shape",
+      "medium": "endpoint path corroborated; one or more parameter names inferred from platform convention",
+      "low": "plausible but uncorroborated; treat as a guess"
+    },
+    "query_encoding": "{QUERY} must be percent-encoded (encodeURIComponent). eBay and Etsy also accept '+' for spaces. {IMAGE_URL} must be a fully percent-encoded absolute https URL."
+  },
+  "sources": [
+    {
+      "id": "ebay-sold",
+      "name": "eBay sold/completed listings",
+      "url_template": "https://www.ebay.com/sch/i.html?_nkw={QUERY}&LH_Sold=1&LH_Complete=1",
+      "kind": "sold-comps",
+      "notes": "THE primary free comp source. Both flags are required: LH_Complete=1 alone shows ended-but-unsold too, and LH_Sold=1 alone reportedly falls back to active listings in some categories. Default sort on a sold search is already 'Ended Recently', so OMIT _sop to get recency - no _sop value for 'Ended Recently' could be confirmed (one guide claimed 13 but self-contradicted, and the eBay community's own list of working values is 1/7/10/12/15/16 with no 13). Web UI window is roughly the last 90 days of sales. Optional: &_sacat=<categoryId>, &_udlo=<min>&_udhi=<max> price bounds, &_pgn=<page>, &_ipg=<60|120|240>, &LH_TitleDesc=1 to search descriptions too, &LH_ItemCondition=<id>.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://www.ebay.com/sch/i.html?_nkw=disney%20pin%20LE%20250%20oogie%20boogie&LH_Sold=1&LH_Complete=1"
+    },
+    {
+      "id": "ebay-sold-pins-category",
+      "name": "eBay sold listings, scoped to the Disney pins category",
+      "url_template": "https://www.ebay.com/sch/i.html?_nkw={QUERY}&_sacat=38004&LH_Sold=1&LH_Complete=1",
+      "kind": "sold-comps",
+      "notes": "38004 = 'Contemporary Disney Pins, Patches & Buttons (1968-Now)'. This is the right default category filter for modern Disney trading pins. Confirmed by many indexed eBay browse URLs of the form https://www.ebay.com/b/<slug>/38004/bn_<node>. Category scoping cuts out the pin-adjacent junk (lanyards, books, apparel) that pollutes a bare keyword comp search.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://www.ebay.com/sch/i.html?_nkw=haunted%20mansion&_sacat=38004&LH_Sold=1&LH_Complete=1"
+    },
+    {
+      "id": "ebay-active",
+      "name": "eBay active listings",
+      "url_template": "https://www.ebay.com/sch/i.html?_nkw={QUERY}&_sacat=38004",
+      "kind": "active-listings",
+      "notes": "Current asks, not comps. Useful as the 'buy it now' side of a price check and as the only eBay surface an official API (Browse) can also reach. Sort with &_sop=10 (newly listed), 1 (ending soonest), 15 (price+shipping low), 16 (price+shipping high), 12 (best match, default), 7 (nearest).",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://www.ebay.com/sch/i.html?_nkw=figment%20pin&_sacat=38004&_sop=10"
+    },
+    {
+      "id": "mercari",
+      "name": "Mercari search",
+      "url_template": "https://www.mercari.com/search/?keyword={QUERY}",
+      "kind": "active-listings",
+      "notes": "Endpoint and 'keyword' param well corroborated. Other confirmed params: categoryId, itemConditions (comma list), priceMin, priceMax, sortBy (e.g. created_time). The sold filter exists in the UI ('Status' -> sold out) but its URL parameter could NOT be confirmed; unofficial client libraries expose a SOLD_OUT status enum, so &status=sold_out is the best guess (see mercari-sold entry). Safest product decision: deep-link the keyword search and tell the user to tap Sold + Newest.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://www.mercari.com/search/?keyword=disney%20pin%20limited%20edition"
+    },
+    {
+      "id": "mercari-sold",
+      "name": "Mercari search, sold filter (UNCONFIRMED)",
+      "url_template": "https://www.mercari.com/search/?keyword={QUERY}&status=sold_out&sortBy=created_time",
+      "kind": "sold-comps",
+      "notes": "DO NOT SHIP WITHOUT TESTING. The status=sold_out parameter is inferred from unofficial Mercari client libraries, not from Mercari documentation or an observed URL. Mercari's web app is a client-rendered SPA whose filter state is not always reflected in shareable query params, so this may silently no-op and show active listings - which would be worse than not offering it.",
+      "verified": false,
+      "confidence": "low",
+      "example": "https://www.mercari.com/search/?keyword=stitch%20pin&status=sold_out&sortBy=created_time"
+    },
+    {
+      "id": "pinpics-pins",
+      "name": "PinPics pin database",
+      "url_template": "https://pinpics.com/pins/",
+      "kind": "catalog",
+      "notes": "NO PUBLIC KEYWORD-SEARCH URL EXISTS as far as could be determined - the template intentionally ignores {QUERY}. PinPics' search lives inside the logged-in Pin Dashboard (per its own help page 'Pin Dashboard: How to Search Inside Pin Lists'), and searching with the full filter set (edition size, origin, etc.) plus the mobile app are PREMIUM subscription features. Individual pin-detail pages are not publicly indexed, so no /pins/<id> pattern could be corroborated. A legacy CGI browse URL (http://pinpics.com/cgi-bin/browse.cgi?type=a&cl1=on) circulates in old forum posts and is probably dead. ~156,000 pins as of March 2026. PinPics 'PP numbers' are the community's de-facto pin IDs - worth storing as a catalog key even though you cannot link to them.",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://pinpics.com/pins/"
+    },
+    {
+      "id": "pinpics-via-google",
+      "name": "PinPics search via Google site: operator (workaround)",
+      "url_template": "https://www.google.com/search?q=site%3Apinpics.com+{QUERY}",
+      "kind": "catalog",
+      "notes": "Practical fallback given PinPics has no public search URL. Only reaches PinPics pages Google has actually indexed (forums, guides, some pin pages), so coverage is partial and unpredictable. Cheap to implement, honest to label as 'search PinPics via Google'.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://www.google.com/search?q=site%3Apinpics.com+oogie+boogie+LE+250"
+    },
+    {
+      "id": "pinpics-login",
+      "name": "PinPics login",
+      "url_template": "https://pinpics.com/login",
+      "kind": "catalog",
+      "notes": "Included because several PinPics features require an account; deep-link here when a user needs to authenticate before the /pins/ link is useful.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://pinpics.com/login"
+    },
+    {
+      "id": "pinvault-app",
+      "name": "PinVault (iOS app)",
+      "url_template": "https://apps.apple.com/us/app/pinvault-collection-tracker/id6759229089",
+      "kind": "catalog",
+      "notes": "NOT DEEP-LINKABLE FOR PRICE CHECKS. PinVault is an iOS collection tracker ('PinVault - Collection Tracker', also distributed via TestFlight), free, with set tracking, set-completion progress, scanning for supported sets, daily mystery boxes and digital-badge trading. No web search interface, no public pin URLs, and no pricing data at all were found. The only sensible deep link is the App Store page. Do not build a price-check flow against it.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://apps.apple.com/us/app/pinvault-collection-tracker/id6759229089"
+    },
+    {
+      "id": "shopdisney",
+      "name": "shopDisney search",
+      "url_template": "https://www.shopdisney.com/search?q={QUERY}",
+      "kind": "retail",
+      "notes": "Retail/MSRP anchor only - no secondary-market signal, and current-release pins sell out fast so most lookups will miss. The /search endpoint is confirmed by an indexed URL (https://www.shopdisney.com/search?cgid=root&page=72); 'q' is the Salesforce Commerce Cloud convention but was not directly observed, so test it. IMPORTANT: the storefront now largely renders as disneystore.com - many indexed pages are https://www.disneystore.com/... - so shopdisney.com URLs may 301. Prefer disneystore.com (see shopdisney-alt) or follow the redirect. Other SFCC params: cgid (category), srule (sort rule, e.g. sorting-option-78), start/sz (paging).",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://www.shopdisney.com/search?q=trading%20pin"
+    },
+    {
+      "id": "shopdisney-alt",
+      "name": "Disney Store (disneystore.com) search",
+      "url_template": "https://www.disneystore.com/search?q={QUERY}",
+      "kind": "retail",
+      "notes": "Same platform, current US brand domain. Canonical pins category page for browsing new releases: https://www.disneystore.com/collectibles/pins/ (new pins drop weekly, Tuesdays 8AM PT). Prefer this over shopdisney.com if testing shows shopdisney.com redirects.",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://www.disneystore.com/search?q=trading%20pin"
+    },
+    {
+      "id": "etsy",
+      "name": "Etsy search",
+      "url_template": "https://www.etsy.com/search?q={QUERY}&order=date_desc",
+      "kind": "active-listings",
+      "notes": "Active asks only - Etsy exposes no sold-price data at listing level, so this is not a comp source. Confirmed params: q, page (1-based), min_price, max_price, ship_to (country code), order in {most_relevant, price_asc, price_desc, date_desc}. Caveat for a Disney pin app: Etsy is heavily populated with fantasy/custom/unlicensed pins and outright scrappers, so Etsy asks are a poor proxy for authentic-pin value.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://www.etsy.com/search?q=disney%20pin%20limited%20edition&order=date_desc"
+    },
+    {
+      "id": "worthpoint",
+      "name": "WorthPoint price guide search",
+      "url_template": "https://www.worthpoint.com/inventory/search?query={QUERY}",
+      "kind": "price-guide",
+      "notes": "PAYWALLED. Standard $29.99/mo or $249.99/yr; Pro $59.99/mo or $599.99/yr. Aggregates 1B+ realized results, 15+ years of history, 500+ auction houses. Its real advantage over eBay is depth of history - it reaches sales far older than eBay's ~90-day sold window, which matters for rare LE/WDI/AP pins that trade a few times a decade. Deep-linking works but drops the user on a paywall, so gate this link behind a 'has WorthPoint' preference. Item pages live at https://www.worthpoint.com/worthopedia/<slug>; the price guide landing page is https://www.worthpoint.com/worthopedia.",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://www.worthpoint.com/inventory/search?query=disney+WDI+pin+LE+250"
+    },
+    {
+      "id": "google-shopping",
+      "name": "Google Shopping search",
+      "url_template": "https://www.google.com/search?q={QUERY}&udm=28",
+      "kind": "active-listings",
+      "notes": "udm=28 is Google's current Shopping vertical (corroborated by Google's own https://www.google.com/shopping/departments?udm=28&shopmd=1). Retail/marketplace asks, not comps. Coverage for collectible Disney pins is thin because most inventory is on eBay/Mercari, which Shopping surfaces inconsistently.",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://www.google.com/search?q=disney%20trading%20pin%20LE%20500&udm=28"
+    },
+    {
+      "id": "google-shopping-legacy",
+      "name": "Google Shopping search (legacy tbm)",
+      "url_template": "https://www.google.com/search?tbm=shop&q={QUERY}",
+      "kind": "active-listings",
+      "notes": "The older vertical-switch form (tbm=isch/vid/nws/shop). Still widely used and generally still resolves, but Google is migrating to udm. Keep as a fallback if udm=28 misbehaves.",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://www.google.com/search?tbm=shop&q=disney%20trading%20pin"
+    },
+    {
+      "id": "google-lens-by-url",
+      "name": "Google Lens reverse image search (by image URL)",
+      "url_template": "https://lens.google.com/uploadbyurl?url={IMAGE_URL}&hl=en",
+      "kind": "image-search",
+      "notes": "The single highest-leverage source for a pin app: it identifies an unknown pin from a photo and surfaces marketplace listings of the same design. Two hard constraints. (1) It takes an image URL, not a file, so the user's photo must first be publicly reachable on the internet - a real privacy decision, not a detail. (2) The endpoint is undocumented and unsupported; Google has broken this shape before and can again. On mobile, prefer handing the photo to the native Google/Lens app via a share intent instead of this URL. Legacy https://www.google.com/searchbyimage?image_url={IMAGE_URL} now redirects into Lens.",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://lens.google.com/uploadbyurl?url=https%3A%2F%2Fexample.com%2Fmy-pin.jpg&hl=en"
+    },
+    {
+      "id": "reddit-disneypinswap",
+      "name": "r/DisneyPinSwap search",
+      "url_template": "https://www.reddit.com/r/DisneyPinSwap/search/?q={QUERY}&restrict_sr=1&sort=new&t=all",
+      "kind": "community",
+      "notes": "restrict_sr=1 scopes results to the subreddit; sort in {new, top, relevance, hot, comments}; t in {hour, day, week, month, year, all}. Community trade/sale threads are a genuinely useful sanity check on eBay comps because swap-community prices are less scrapper-contaminated and often reflect what collectors actually pay each other.",
+      "verified": false,
+      "confidence": "high",
+      "example": "https://www.reddit.com/r/DisneyPinSwap/search/?q=oogie%20boogie%20LE%20250&restrict_sr=1&sort=new&t=all"
+    },
+    {
+      "id": "reddit-disneypinswap-rss",
+      "name": "r/DisneyPinSwap search (RSS, machine-readable)",
+      "url_template": "https://www.reddit.com/r/DisneyPinSwap/search.rss?q={QUERY}&restrict_sr=1&sort=new",
+      "kind": "community",
+      "notes": "Rare win: an actual machine-readable endpoint requiring no API key. Swap .rss for .json for JSON. Fine for light personal use; Reddit rate-limits unauthenticated clients hard (order of 10 requests/min) and its ToS restricts commercial scraping, so do not build a crawler on it.",
+      "verified": false,
+      "confidence": "medium",
+      "example": "https://www.reddit.com/r/DisneyPinSwap/search.rss?q=figment&restrict_sr=1&sort=new"
+    }
+  ],
+  "ebay_category_ids": {
+    "_note": "Harvested from indexed eBay browse URLs of the form https://www.ebay.com/b/<slug>/<categoryId>/bn_<node>. Use as _sacat values. 38004 is the correct primary filter for modern Disney trading pins.",
+    "38004": "Contemporary Disney Pins, Patches & Buttons (1968-Now) - PRIMARY",
+    "38005": "Disney Cast Member Exclusive Pins, Patches & Buttons (1968-Now)",
+    "143": "Other Disney Patches & Pins (1968-Now)",
+    "1379": "Disney Limited Edition Collectibles (1968-Now)",
+    "138": "Other Disney Collectibles (1968-Now)",
+    "139": "Vintage Disney Collectibles (Pre-1968)",
+    "137": "Disneyana (broad parent - use when 38004 is too narrow)"
+  },
+  "ebay_sort_values": {
+    "_note": "_sop values reported as currently working by eBay community sources. No value for 'Ended Recently' could be confirmed - omit _sop on sold searches, where Ended Recently is already the default.",
+    "1": "Time: ending soonest",
+    "7": "Distance: nearest first",
+    "10": "Time: newly listed",
+    "12": "Best Match (default)",
+    "15": "Price + Shipping: lowest first",
+    "16": "Price + Shipping: highest first"
+  }
+}
