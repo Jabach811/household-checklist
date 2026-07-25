@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pin Board — Disney &amp; Wizarding World Pin Tracker</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true"></span>
+    <div>
+      <h1>Pin Board</h1>
+      <p class="tagline">Search every pin · track what you own · check what it's worth</p>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <button id="theme-toggle" class="btn ghost" title="Toggle light / dark">◐</button>
+    <button id="btn-export" class="btn ghost">Export</button>
+    <button id="btn-import" class="btn ghost">Import</button>
+    <input type="file" id="file-import" accept="application/json" hidden>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button class="tab is-active" data-view="board" role="tab">Cork Board</button>
+  <button class="tab" data-view="browse" role="tab">Browse</button>
+  <button class="tab" data-view="table" role="tab">Table</button>
+  <button class="tab" data-view="wishlist" role="tab">Wishlist</button>
+  <button class="tab" data-view="stats" role="tab">Stats</button>
+</nav>
+
+<div class="searchbar">
+  <div class="search-wrap">
+    <input id="q" type="search" placeholder="Search pins — name, character, series, park, year, tag…" autocomplete="off">
+    <kbd>/</kbd>
+  </div>
+  <button id="btn-filters" class="btn">Filters <span id="filter-count" class="pill" hidden>0</span></button>
+  <select id="sort" class="select" title="Sort">
+    <option value="name">Name A–Z</option>
+    <option value="-year">Newest first</option>
+    <option value="year">Oldest first</option>
+    <option value="-value">Value: high → low</option>
+    <option value="value">Value: low → high</option>
+    <option value="-rarity">Rarest first</option>
+    <option value="series">Series</option>
+  </select>
+  <span id="result-count" class="result-count"></span>
+</div>
+
+<aside id="filters" class="filters" hidden>
+  <div class="filters-grid" id="filters-grid"></div>
+  <div class="filters-foot">
+    <label class="range-row">Year
+      <input type="number" id="year-min" placeholder="from" min="1950" max="2030">
+      <input type="number" id="year-max" placeholder="to" min="1950" max="2030">
+    </label>
+    <label class="range-row">Value $
+      <input type="number" id="val-min" placeholder="min" min="0">
+      <input type="number" id="val-max" placeholder="max" min="0">
+    </label>
+    <button id="btn-clear-filters" class="btn ghost">Clear all</button>
+  </div>
+</aside>
+
+<main>
+  <!-- ══ CORK BOARD ══ -->
+  <section id="view-board" class="view is-active">
+    <div class="board-toolbar">
+      <div class="seg" role="group" aria-label="Board contents">
+        <button class="seg-btn is-active" data-board="all">Whole board</button>
+        <button class="seg-btn" data-board="Disney">Disney</button>
+        <button class="seg-btn" data-board="Wizarding World">Wizarding World</button>
+      </div>
+      <p class="board-hint">Showing pins marked <strong>owned</strong>. Click any pin for details and price checks.</p>
+    </div>
+    <div class="frame">
+      <div class="cork" id="cork">
+        <div class="cork-empty" id="cork-empty" hidden>
+          <p>No pins marked as owned yet.</p>
+          <p class="muted">Open <strong>Browse</strong>, find your pins, and hit <em>I own this</em>. They'll appear here.</p>
+        </div>
+      </div>
+    </div>
+    <p class="board-caption" id="board-caption"></p>
+  </section>
+
+  <!-- ══ BROWSE ══ -->
+  <section id="view-browse" class="view">
+    <div id="grid" class="grid"></div>
+    <div id="grid-empty" class="empty" hidden>Nothing matches those filters.</div>
+    <button id="btn-more" class="btn wide" hidden>Load more</button>
+  </section>
+
+  <!-- ══ TABLE ══ -->
+  <section id="view-table" class="view">
+    <div class="table-toolbar">
+      <details class="colpick">
+        <summary class="btn">Columns</summary>
+        <div class="colpick-panel" id="colpick-panel"></div>
+      </details>
+      <button id="btn-csv" class="btn ghost">Download CSV</button>
+      <span class="muted small">Click a header to sort · click a row to open details</span>
+    </div>
+    <div class="table-scroll">
+      <table id="table">
+        <thead><tr id="thead-row"></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══ WISHLIST ══ -->
+  <section id="view-wishlist" class="view">
+    <div class="wl-head">
+      <h2>Want list</h2>
+      <p class="muted">Pins you're hunting. Set a target price and the row flags when market value drops to it.</p>
+    </div>
+    <div id="wl-grid" class="grid"></div>
+    <div id="wl-empty" class="empty" hidden>Nothing on the want list yet — hit <em>Want it</em> on any pin.</div>
+  </section>
+
+  <!-- ══ STATS ══ -->
+  <section id="view-stats" class="view">
+    <div class="stat-row" id="stat-row"></div>
+    <div class="stat-panels">
+      <div class="panel"><h3>By franchise</h3><div id="bar-franchise" class="bars"></div></div>
+      <div class="panel"><h3>By edition type</h3><div id="bar-edition" class="bars"></div></div>
+      <div class="panel"><h3>By origin</h3><div id="bar-origin" class="bars"></div></div>
+      <div class="panel"><h3>By decade</h3><div id="bar-decade" class="bars"></div></div>
+    </div>
+  </section>
+</main>
+
+<!-- ══ DETAIL DRAWER ══ -->
+<div id="scrim" class="scrim" hidden></div>
+<aside id="drawer" class="drawer" hidden aria-label="Pin details">
+  <button id="drawer-close" class="drawer-close">✕</button>
+  <div id="drawer-body"></div>
+</aside>
+
+<footer class="foot">
+  <p>Catalog data is researched from public collector sources and is <strong>approximate</strong> — always confirm with live sold listings before buying or selling. Your own collection data lives in this browser only; use <strong>Export</strong> to back it up.</p>
+  <p class="muted small" id="foot-meta"></p>
+</footer>
+
+<script src="data/catalog.js"></script>
+<script src="data/sources.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
