@@ -40,6 +40,10 @@
 
 * { box-sizing: border-box; }
 
+/* Any explicit `display` beats the `hidden` attribute, and several classes
+   below set one. Keep `hidden` authoritative. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   font-family: var(--sans);
@@ -189,6 +193,14 @@ main { padding: 0 clamp(.9rem, 3vw, 2rem) 3rem; }
 .seg-btn + .seg-btn { border-left: 1px solid var(--line); }
 .seg-btn.is-active { background: var(--gold); color: #26200a; font-weight: 600; }
 .board-hint { font-size: .8rem; color: var(--ink-3); }
+
+.claim {
+  display: flex; gap: 1rem; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; margin-bottom: .9rem; font-size: .82rem; color: var(--ink-2);
+  background: #c9a2270f; border: 1px solid #c9a22740;
+  border-radius: var(--radius); padding: .7rem .9rem;
+}
+.claim strong { color: var(--gold-2); }
 
 .frame {
   border-radius: 6px;
@@ -423,6 +435,29 @@ td.wrap { white-space: normal; min-width: 220px; }
 .mine-row input, .mine-row select, .mine-row textarea { width: 100%; }
 .own-toggles { display: flex; gap: .5rem; flex-wrap: wrap; margin-bottom: .3rem; }
 .note { font-size: .78rem; color: var(--ink-2); line-height: 1.5; }
+
+/* sold-comp log */
+.complist { list-style: none; margin: .6rem 0; padding: 0; display: flex; flex-direction: column; gap: .3rem; }
+.complist li {
+  display: grid; grid-template-columns: auto 1fr auto; gap: .55rem; align-items: center;
+  background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 8px; padding: .38rem .55rem; font-size: .78rem;
+}
+.comp-price { font: 700 .85rem var(--mono); color: var(--gold-2); font-variant-numeric: tabular-nums; }
+.comp-meta { color: var(--ink-3); font-size: .72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.comp-del {
+  background: none; border: 0; color: var(--ink-3); cursor: pointer;
+  font-size: .8rem; line-height: 1; padding: .15rem .25rem; border-radius: 5px;
+}
+.comp-del:hover { color: var(--danger); background: #e2725b1a; }
+.compform {
+  display: grid; gap: .4rem; margin-top: .6rem;
+  grid-template-columns: 5.5rem 1fr; align-items: center;
+}
+.compform input[type="number"] { grid-column: 1; }
+.compform input[type="date"] { grid-column: 2; }
+.compform select, .compform input[type="text"] { grid-column: 1 / -1; }
+.compform .btn { grid-column: 1 / -1; justify-content: center; }
 .tagrow { display: flex; flex-wrap: wrap; gap: .25rem; }
 
 /* ── footer ──────────────────────────────────────────────────────────────── */

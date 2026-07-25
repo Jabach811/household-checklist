@@ -41,13 +41,34 @@ function setMine(id, patch) {
 }
 
 /* ── derived values ──────────────────────────────────────────────────────── */
-function marketValue(p) {
+/* Where an estimated value comes from, most trusted first:
+     1. a value you typed yourself
+     2. the median of sold comps YOU logged — your own observations beat
+        researched ranges, and unlike raw eBay medians they aren't dragged
+        down by the counterfeit ("scrapper") price cluster
+     3. the researched median
+     4. the midpoint of the researched range                                */
+function valueSource(p) {
   const m = mineOf(p.id);
-  if (num(m.myValue) != null) return num(m.myValue);
-  if (num(p.market_median_usd) != null) return num(p.market_median_usd);
+  if (num(m.myValue) != null) return { value: num(m.myValue), from: 'your valuation' };
+  const cm = compsMedian(p.id);
+  if (cm != null) {
+    const n = (m.comps || []).length;
+    return { value: cm, from: `median of your ${n} logged comp${n === 1 ? '' : 's'}` };
+  }
+  if (num(p.market_median_usd) != null) return { value: num(p.market_median_usd), from: 'researched median' };
   const lo = num(p.market_low_usd), hi = num(p.market_high_usd);
-  if (lo != null && hi != null) return (lo + hi) / 2;
-  return lo ?? hi ?? null;
+  if (lo != null && hi != null) return { value: (lo + hi) / 2, from: 'midpoint of researched range' };
+  const one = lo ?? hi;
+  return one != null ? { value: one, from: 'single researched figure' } : { value: null, from: null };
+}
+const marketValue = p => valueSource(p).value;
+
+function compsMedian(id) {
+  const xs = (mineOf(id).comps || []).map(c => num(c.price)).filter(v => v != null).sort((a, b) => a - b);
+  if (!xs.length) return null;
+  const mid = Math.floor(xs.length / 2);
+  return xs.length % 2 ? xs[mid] : (xs[mid - 1] + xs[mid]) / 2;
 }
 function num(v) {
   if (v === '' || v == null) return null;
@@ -61,47 +82,85 @@ const money = v => v == null ? '—' : '$' + Number(v).toLocaleString('en-US',
 
 /* Placeholder art: a glyph picked from what the pin actually is. Replaced by a
    real cutout as soon as `image` is populated on the record. */
-const GLYPH_RULES = [
-  [/ear headband|headband|minnie ear/i, '🎀'],
-  [/castle/i, '🏰'],
-  [/tassel/i, '🎏'],
-  [/boba|tea|drink|soda|cup/i, '🧋'],
-  [/sushi|food|snack|popcorn|pretzel|churro|ice cream|cupcake|donut/i, '🍡'],
-  [/platform 9|hogwarts express|train|ticket/i, '🚂'],
-  [/owl/i, '🦉'],
-  [/sorting hat|hat/i, '🎩'],
-  [/cauldron|potion/i, '⚗️'],
-  [/wand|spectrespecs|glasses/i, '🪄'],
-  [/knight bus|bus/i, '🚌'],
-  [/chocolate frog|frog/i, '🐸'],
-  [/crest|alumni|badge|shield/i, '🛡️'],
-  [/snowflake|frozen|elsa|anna|olaf/i, '❄️'],
-  [/pascal|chameleon|tangled|rapunzel/i, '🦎'],
-  [/nala|simba|lion king/i, '🦁'],
+/* Who it is beats what shape it is — otherwise a shelf of ear-headband pins all
+   render as the same bow. Character rules are tried first, then pin form. */
+const CHAR_RULES = [
+  [/cheshire/i, '😼'],
+  [/alice|wonderland|mad tea|caterpillar/i, '🫖'],
+  [/ariel|mermaid|flounder|sebastian/i, '🧜'],
+  [/stitch|lilo/i, '👽'],
+  [/elsa|anna|olaf|frozen|arendelle/i, '❄️'],
+  [/pascal|rapunzel|tangled/i, '🦎'],
+  [/nala|simba|lion king|zazu/i, '🦁'],
+  [/dumbo/i, '🐘'],
+  [/bambi/i, '🦌'],
   [/donald/i, '🦆'],
   [/daisy duck/i, '🌸'],
   [/goofy/i, '🐶'],
   [/pluto/i, '🐕'],
-  [/stitch|lilo/i, '👽'],
-  [/cheshire|alice|wonderland/i, '🐱'],
-  [/maleficent|villain|ursula|evil queen|hades|jafar/i, '😈'],
-  [/princess|cinderella|belle|ariel|aurora|jasmine|tiana|moana/i, '👑'],
-  [/mickey/i, '🐭'],
+  [/marie|figaro|duchess/i, '🐈'],
+  [/pooh|piglet|eeyore|tigger/i, '🍯'],
+  [/jungle book|baloo|mowgli/i, '🐅'],
+  [/gus|jaq|cinderella/i, '🐭'],
+  [/orange bird/i, '🐦'],
+  [/maleficent|ursula|evil queen|hades|jafar|villain|leota/i, '😈'],
+  [/snow white|dopey|grumpy|dwarf/i, '🍎'],
+  [/belle|beast|lumiere/i, '🌹'],
+  [/jasmine|aladdin|genie/i, '🧞'],
+  [/tiana|moana|merida|mulan|pocahontas|aurora|princess/i, '👑'],
+  [/steamboat willie/i, '🚢'],
   [/minnie/i, '🎀'],
-  [/star wars|jedi|vader|droid|r2|bb-8/i, '🌌'],
-  [/marvel|spider|iron man|thor|avenger/i, '⚡'],
-  [/haunted mansion|ghost/i, '👻'],
+  [/mickey/i, '🐭'],
+  [/star tours|star wars|jedi|vader|droid|r2|bb-8|boba fett/i, '🌌'],
+  [/marvel|spider|iron man|thor|avenger/i, '🦸'],
+  [/luna|spectrespecs/i, '👓'],
+  [/weasley/i, '🎆'],
+  [/gryffindor/i, '🦁'],
+  [/slytherin/i, '🐍'],
+  [/hufflepuff/i, '🦡'],
+  [/ravenclaw/i, '🦅'],
+  [/sorting hat/i, '🎩'],
+  [/owl post|owl|hedwig/i, '🦉'],
+  [/knight bus/i, '🚌'],
+  [/chocolate frog/i, '🐸'],
+  [/leaky cauldron|cauldron|potion/i, '⚗️'],
+  [/flying key|winged key/i, '🗝️'],
+  [/marauder|mischief/i, '👣'],
+  [/platform 9|hogwarts express|hogwarts railway/i, '🚂'],
+];
+const FORM_RULES = [
+  [/castle/i, '🏰'],
+  [/boba|bubble tea|tea latte|drink|soda/i, '🧋'],
+  [/sushi/i, '🍣'],
+  [/popcorn/i, '🍿'],
+  [/pretzel|churro|ice cream|cupcake|donut|treat|snack|food/i, '🍡'],
+  [/bookmark|tassel/i, '🔖'],
+  [/firework|nighttime|finale/i, '🎆'],
+  [/haunted mansion|ghost|hatbox/i, '👻'],
   [/pirate/i, '🏴‍☠️'],
   [/space mountain|rocket|tomorrowland/i, '🚀'],
+  [/big thunder|railroad/i, '🚂'],
+  [/jungle cruise|tiki/i, '🌴'],
+  [/small world|carrousel|carousel/i, '🎠'],
+  [/peter pan|flight/i, '🧚'],
+  [/balloon/i, '🎈'],
   [/cruise|ship|boat/i, '🚢'],
-  [/flower|garden|floral|daisy/i, '🌼'],
+  [/flower|garden|floral|blossom/i, '🌼'],
   [/museum/i, '🏛️'],
-  [/anniversary|50th|100|disney100/i, '✨'],
-  [/letter|alphabet|monogram|initial/i, '🔤'],
+  [/anniversary|50th|disney100|disney 100/i, '✨'],
+  [/letter|alphabet|monogram|initial|'d' pin/i, '🔤'],
+  [/ticket/i, '🎫'],
+  [/crest|alumni|badge|shield|banner/i, '🛡️'],
+  [/ear headband|headband|minnie ear/i, '🎀'],
+  [/wand/i, '🪄'],
+  [/snowflake|ornament/i, '❄️'],
+  [/keychain|keyring/i, '🔑'],
 ];
 function glyph(p) {
-  const hay = [p.name, p.series, p.property, (p.characters || []).join(' '), (p.tags || []).join(' ')].join(' ');
-  for (const [re, g] of GLYPH_RULES) if (re.test(hay)) return g;
+  const hay = [p.name, p.series, p.property, (p.characters || []).join(' '),
+               (p.tags || []).join(' '), p.board_note].filter(Boolean).join(' ');
+  for (const [re, g] of CHAR_RULES) if (re.test(hay)) return g;
+  for (const [re, g] of FORM_RULES) if (re.test(hay)) return g;
   return p.franchise === 'Wizarding World' ? '⚡' : '📌';
 }
 const TACKS = ['#d94f4f', '#3f7fd9', '#4fae72', '#e0a53c', '#9b62c9', '#d9578f'];
@@ -181,6 +240,9 @@ const COLUMNS = [
   { key: 'owned',       label: 'Owned',         def: true,  get: p => isOwned(p) ? '✓' : '', mine: true },
   { key: 'qty',         label: 'Qty',           def: false, get: p => mineOf(p.id).qty, cls: 'num', mine: true },
   { key: 'condition',   label: 'Condition',     def: false, get: p => mineOf(p.id).condition, mine: true },
+  { key: 'backerCard',  label: 'Backer card',   def: false, get: p => mineOf(p.id).backerCard, mine: true },
+  { key: 'compCount',   label: 'My comps',      def: false, get: p => (mineOf(p.id).comps || []).length || null, cls: 'num', mine: true },
+  { key: 'compMedian',  label: 'My comp median', def: false, get: p => compsMedian(p.id), cls: 'num', fmt: money, mine: true },
   { key: 'paid',        label: 'Paid',          def: false, get: p => num(mineOf(p.id).paid), cls: 'num', fmt: money, mine: true },
   { key: 'gain',        label: 'Gain/loss',     def: false, get: p => {
       const v = marketValue(p), paid = num(mineOf(p.id).paid);
@@ -334,10 +396,27 @@ function renderBoard() {
     for (const p of sortPins(groups.get(k), 'series')) cork.appendChild(pinnedNode(p));
   }
 
-  const total = owned.reduce((a, p) => a + (marketValue(p) ?? 0), 0);
-  $('#board-caption').textContent = owned.length
-    ? `${owned.length} pin${owned.length === 1 ? '' : 's'} on the board · estimated ${money(Math.round(total))} total`
-    : '';
+  /* Research identified pins physically on the board; offer to claim them in
+     one go rather than making the owner tick 50-odd boxes by hand. */
+  const unclaimed = CATALOG.filter(p => p.on_board && !isOwned(p));
+  const banner = $('#claim-banner');
+  banner.hidden = unclaimed.length === 0;
+  $('#claim-count').textContent = unclaimed.length;
+
+  /* Say plainly how much of the total is actually backed by price data —
+     "$0 total" across 53 unpriced pins would read as a valuation, not a gap. */
+  const withVal = owned.filter(p => marketValue(p) != null);
+  const total = withVal.reduce((a, p) => a + marketValue(p), 0);
+  const n = owned.length;
+  let caption = '';
+  if (n) {
+    caption = `${n} pin${n === 1 ? '' : 's'} on the board · `;
+    caption += withVal.length === 0
+      ? 'none priced yet — open a pin and run a price check'
+      : `${money(Math.round(total))} across the ${withVal.length} with a value on record` +
+        (withVal.length < n ? ` · ${n - withVal.length} still unpriced` : '');
+  }
+  $('#board-caption').textContent = caption;
 }
 
 function pinnedNode(p) {
@@ -501,14 +580,16 @@ function renderStats() {
   const paid = owned.reduce((a, p) => a + (num(mineOf(p.id).paid) ?? 0), 0);
   const priced = CATALOG.filter(p => marketValue(p) != null).length;
 
+  const ownedPriced = owned.filter(p => marketValue(p) != null).length;
   const stats = [
     ['Pins in catalog', CATALOG.length.toLocaleString()],
     ['Owned', owned.length.toLocaleString()],
     ['On want list', want.length.toLocaleString()],
-    ['Collection value', money(Math.round(val)), true],
+    ['Value of priced pins', ownedPriced ? money(Math.round(val)) : 'none priced', true],
+    ['Owned pins priced', owned.length ? `${ownedPriced} of ${owned.length}` : '—'],
     ['Total paid', paid ? money(Math.round(paid)) : '—'],
-    ['Unrealised gain', paid ? money(Math.round(val - paid)) : '—'],
-    ['With price data', `${Math.round(priced / Math.max(CATALOG.length, 1) * 100)}%`],
+    ['Unrealised gain', paid && ownedPriced ? money(Math.round(val - paid)) : '—'],
+    ['Catalog with price data', `${Math.round(priced / Math.max(CATALOG.length, 1) * 100)}%`],
     ['Series tracked', new Set(CATALOG.map(p => p.series).filter(Boolean)).size],
   ];
   const row = $('#stat-row');
@@ -562,12 +643,19 @@ const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 function priceLinks(p) {
   const q = encodeURIComponent(searchTerms(p));
-  return (SOURCES.sources || []).map(s => ({
-    name: s.name,
-    kind: s.kind,
-    url: s.url_template.replace(/\{QUERY\}/g, q),
-    primary: s.kind === 'sold-comps',
-  }));
+  const img = p.image ? encodeURIComponent(absoluteUrl(p.image)) : null;
+  return (SOURCES.sources || [])
+    // reverse-image lookups are only meaningful once the pin has a picture
+    .filter(s => !s.needs_image || img)
+    .map(s => ({
+      name: s.name,
+      kind: s.kind,
+      url: s.url_template.replace(/\{QUERY\}/g, q).replace(/\{IMAGE_URL\}/g, img || ''),
+      primary: s.kind === 'sold-comps',
+    }));
+}
+function absoluteUrl(u) {
+  try { return new URL(u, location.href).href; } catch { return u; }
 }
 
 /* ── drawer ─────────────────────────────────────────────────────────────── */
@@ -598,7 +686,8 @@ function openDrawer(p) {
   ]));
 
   /* value */
-  const v = marketValue(p);
+  const vs = valueSource(p);
+  const v = vs.value;
   const lo = num(p.market_low_usd), hi = num(p.market_high_usd);
   const pb = el('div', { className: 'pricebox' }, [
     el('span', { className: 'big', textContent: v == null ? '—' : money(Math.round(v)) }),
@@ -608,9 +697,15 @@ function openDrawer(p) {
       ? el('span', { className: 'conf ' + p.price_confidence, textContent: p.price_confidence + ' confidence' }) : null,
   ]);
   const valueSection = el('div', { className: 'd-section' }, [el('h3', { textContent: 'Estimated value' }), pb]);
+  if (vs.from) {
+    valueSection.appendChild(el('p', { className: 'note muted small', textContent: 'Based on: ' + vs.from }));
+  }
   if (v == null) {
     valueSection.appendChild(el('p', { className: 'note muted',
-      textContent: 'No sold comps recorded for this pin. Use the price checks below and save what you find.' }));
+      textContent: 'No value on record for this pin. Run a price check below, then log what you find — logged comps become the estimate.' }));
+  } else if (p.price_confidence === 'low' && !compsMedian(p.id) && num(mineOf(p.id).myValue) == null) {
+    valueSection.appendChild(el('p', { className: 'note muted',
+      textContent: 'Treat this as a rough hint only. Raw marketplace medians run low because counterfeits cluster at the bottom of the range — log a real comp to replace it.' }));
   }
   body.appendChild(valueSection);
 
@@ -636,9 +731,15 @@ function openDrawer(p) {
     textContent: m.wishlist ? '✓ On want list' : 'Want it' });
   wantBtn.onclick = () => { setMine(p.id, { wishlist: !mineOf(p.id).wishlist }); openDrawer(p); renderAll(); };
 
+  /* Condition and backer card are separate on purpose: collectors price them
+     separately. A damaged pin loses 40–70%; losing only the special backer
+     card can still cost ~50% on its own. */
   const mineRows = [
     ['Quantity', 'qty', 'number'],
-    ['Condition', 'condition', 'select', ['', 'Mint on card', 'Mint', 'Very good', 'Good', 'Worn', 'Damaged', 'Suspected scrapper']],
+    ['Condition', 'condition', 'select',
+      ['', 'Mint', 'Very good', 'Good', 'Worn', 'Damaged', 'Suspected scrapper']],
+    ['Backer card', 'backerCard', 'select',
+      ['', 'On original card', 'Special backer card', 'Card only, pin loose', 'No card', 'Unknown']],
     ['Paid ($)', 'paid', 'number'],
     ['Acquired', 'acquired', 'date'],
     ['Acquired from', 'acquiredFrom', 'text'],
@@ -664,6 +765,62 @@ function openDrawer(p) {
   notes.onchange = () => { setMine(p.id, { notes: notes.value }); renderAll(); };
   mine.appendChild(el('div', { className: 'mine-row' }, [el('label', { textContent: 'My notes' }), notes]));
   body.appendChild(el('div', { className: 'd-section' }, [el('h3', { textContent: 'My copy' }), mine]));
+
+  /* ── sold-comp log ──────────────────────────────────────────────────────
+     No public API returns Disney pin sold prices, so the only way to own real
+     price data is to record it as you see it. These accumulate per pin and the
+     median becomes the estimate. */
+  const comps = (mineOf(p.id).comps || []).slice()
+    .sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  const compSection = el('div', { className: 'd-section' },
+    el('h3', { textContent: 'Sold comps I have logged' }));
+
+  if (comps.length) {
+    const med = compsMedian(p.id);
+    const prices = comps.map(c => num(c.price)).filter(v2 => v2 != null);
+    compSection.appendChild(el('p', { className: 'note muted small', textContent:
+      `${comps.length} comp${comps.length === 1 ? '' : 's'} · median ${money(med)}` +
+      (prices.length > 1 ? ` · range ${money(Math.min(...prices))}–${money(Math.max(...prices))}` : '') }));
+    const ul = el('ul', { className: 'complist' });
+    comps.forEach(c => {
+      const del = el('button', { className: 'comp-del', type: 'button', title: 'Remove this comp', textContent: '✕' });
+      del.onclick = e => {
+        e.stopPropagation();
+        const rest = (mineOf(p.id).comps || []).filter(x => x !== c);
+        setMine(p.id, { comps: rest });
+        openDrawer(p); renderAll();
+      };
+      ul.appendChild(el('li', {}, [
+        el('span', { className: 'comp-price', textContent: money(num(c.price)) }),
+        el('span', { className: 'comp-meta', textContent: [c.date, c.source, c.note].filter(Boolean).join(' · ') }),
+        del,
+      ]));
+    });
+    compSection.appendChild(ul);
+  } else {
+    compSection.appendChild(el('p', { className: 'note muted small',
+      textContent: 'Nothing logged yet. When you see this pin actually sell, record the price — your own comps are better data than any researched range.' }));
+  }
+
+  const cPrice  = el('input', { type: 'number', min: '0', step: '0.01', placeholder: 'Price $' });
+  const cDate   = el('input', { type: 'date', value: new Date().toISOString().slice(0, 10) });
+  const cSource = el('select');
+  ['eBay sold', 'Mercari', 'Etsy', 'Pin trader', 'Facebook group', 'Reddit', 'In park', 'Other']
+    .forEach(o => cSource.appendChild(el('option', { value: o, textContent: o })));
+  const cNote = el('input', { type: 'text', placeholder: 'Note (condition, on card…)' });
+  const cAdd  = el('button', { className: 'btn tiny gold', type: 'button', textContent: 'Log comp' });
+  cAdd.onclick = () => {
+    const price = num(cPrice.value);
+    if (price == null) { cPrice.focus(); return; }
+    const list = (mineOf(p.id).comps || []).concat([{
+      price, date: cDate.value || null, source: cSource.value, note: cNote.value || null,
+    }]);
+    setMine(p.id, { comps: list });
+    openDrawer(p); renderAll();
+  };
+  cPrice.onkeydown = e => { if (e.key === 'Enter') cAdd.click(); };
+  compSection.appendChild(el('div', { className: 'compform' }, [cPrice, cDate, cSource, cNote, cAdd]));
+  body.appendChild(compSection);
 
   /* full record */
   const facts = [
@@ -802,6 +959,13 @@ function wire() {
     $$('.seg-btn').forEach(x => x.classList.toggle('is-active', x === b));
     state.boardFilter = b.dataset.board; renderBoard();
   });
+
+  $('#btn-claim').onclick = () => {
+    const todo = CATALOG.filter(p => p.on_board && !isOwned(p));
+    if (!confirm(`Mark ${todo.length} pins from your board photo as owned?`)) return;
+    todo.forEach(p => setMine(p.id, { owned: true }));
+    renderAll();
+  };
 
   $('#drawer-close').onclick = closeDrawer;
   $('#scrim').onclick = closeDrawer;

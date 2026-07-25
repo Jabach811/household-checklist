@@ -47,14 +47,25 @@ LIST_FIELDS = ['characters', 'pin_type', 'tags', 'source_urls']
 # url-templates.json; these are the verified-by-hand baseline so the app always
 # has working price links even with no research input.
 DEFAULT_SOURCES = [
+    # eBay sold needs BOTH LH_ flags. `_sop` is deliberately omitted — the
+    # default sort on a sold search is already "Ended Recently", and the
+    # widely-cited _sop=13 is not in eBay's own documented list.
+    # _sacat=38004 = "Contemporary Disney Pins, Patches & Buttons (1968-Now)".
     {
         'id': 'ebay-sold', 'name': 'eBay — sold', 'kind': 'sold-comps',
-        'url_template': 'https://www.ebay.com/sch/i.html?_nkw={QUERY}&LH_Sold=1&LH_Complete=1&_sop=13',
-        'notes': 'Completed + sold, newest first. The only reliable comp source.',
+        'url_template': 'https://www.ebay.com/sch/i.html?_nkw={QUERY}&_sacat=38004&LH_Sold=1&LH_Complete=1',
+        'notes': 'Sold + completed, scoped to the Disney pins category.',
+    },
+    {
+        # Scrappers (counterfeits) cluster at $2–8 and drag the raw median down,
+        # so a price floor is the quickest way to see the authentic comps.
+        'id': 'ebay-sold-floor', 'name': 'eBay — sold, $10+', 'kind': 'sold-comps',
+        'url_template': 'https://www.ebay.com/sch/i.html?_nkw={QUERY}&_sacat=38004&LH_Sold=1&LH_Complete=1&_udlo=10',
+        'notes': 'Sold above $10 — filters out most of the counterfeit cluster.',
     },
     {
         'id': 'ebay-active', 'name': 'eBay — active', 'kind': 'asking',
-        'url_template': 'https://www.ebay.com/sch/i.html?_nkw={QUERY}&_sop=15',
+        'url_template': 'https://www.ebay.com/sch/i.html?_nkw={QUERY}&_sacat=38004&_sop=15',
         'notes': 'Active listings, cheapest first. Asking prices run high.',
     },
     {
@@ -98,6 +109,17 @@ DEFAULT_SOURCES = [
         'notes': 'For confirming you have the right pin.',
     },
 ]
+
+
+# Short button labels for sources the research pass discovers on its own.
+# Research descriptions are accurate but too long to sit on a button.
+NAME_OVERRIDES = {
+    'pinpics-via-google': 'PinPics (via Google)',
+    'google-lens-by-url': 'Google Lens',
+    'shopdisney-alt': 'Disney Store',
+    'mercari-sold': 'Mercari — sold',
+    'ebay-sold-pins-category': 'eBay — sold (pins)',
+}
 
 
 def slugify(s: str) -> str:
@@ -254,7 +276,9 @@ def main() -> int:
     by_key: dict[tuple, str] = {}
     seg_counts: Counter = Counter()
 
-    files = sorted(f for f in rdir.glob('*.json') if f.name != 'url-templates.json')
+    # `_`-prefixed files are a research pass's own working scratch, not segments
+    files = sorted(f for f in rdir.glob('*.json')
+                   if f.name != 'url-templates.json' and not f.name.startswith('_'))
     if not files:
         print(f'error: no segment JSON found in {rdir}', file=sys.stderr)
         return 1
@@ -301,18 +325,58 @@ def main() -> int:
             doc = json.loads(tpl.read_text())
             for s in doc.get('sources', []):
                 sid = s.get('id') or slugify(s.get('name', ''))
-                if not s.get('url_template') or '{QUERY}' not in s['url_template']:
-                    problems.append(f'[url-templates] {sid}: no {{QUERY}} placeholder, skipped')
+                t = s.get('url_template') or ''
+                # a usable source is a per-pin lookup: either a text search or a
+                # reverse-image lookup. Bare homepages and login pages are not.
+                if '{QUERY}' not in t and '{IMAGE_URL}' not in t:
+                    problems.append(f'[url-templates] {sid}: not a per-pin lookup, skipped')
+                    continue
+                if re.search(r'unconfirmed|unverified', f"{s.get('name','')} {s.get('notes','')}", re.I):
+                    problems.append(f'[url-templates] {sid}: flagged unconfirmed by research, skipped')
                     continue
                 base = sources.get(sid, {})
-                sources[sid] = {**base, **{k: v for k, v in s.items() if v not in (None, '')}, 'id': sid}
+                merged = {**base, **{k: v for k, v in s.items() if v not in (None, '')}, 'id': sid}
+                # research supplies the URL and notes; keep our short button label
+                if base.get('name') or sid in NAME_OVERRIDES:
+                    merged['name'] = base.get('name') or NAME_OVERRIDES[sid]
+                merged['needs_image'] = '{IMAGE_URL}' in t
+                sources[sid] = merged
         except json.JSONDecodeError as e:
             problems.append(f'[url-templates.json] unparseable: {e}')
     else:
         problems.append('url-templates.json missing — using built-in defaults only')
 
+    KIND_RANK = {
+        'sold-comps': 0, 'price-guide': 1, 'catalog': 2, 'database': 2,
+        'retail': 3, 'active-listings': 4, 'asking': 4,
+        'community': 5, 'identify': 6, 'image-search': 6,
+    }
     order = {s['id']: i for i, s in enumerate(DEFAULT_SOURCES)}
-    src_list = sorted(sources.values(), key=lambda s: (order.get(s['id'], 99), s.get('name', '')))
+
+    def host_of(s):
+        m = re.search(r'https?://([^/]+)', s.get('url_template', ''))
+        return (m.group(1) if m else s['id']).replace('www.', '')
+
+    # One source per (kind, host), so the drawer doesn't show four flavours of
+    # eBay. Curated defaults are always kept — they're hand-picked variants
+    # (e.g. a price-floored sold search) that would otherwise look redundant.
+    picked: dict[tuple, dict] = {}
+    keep: list[dict] = []
+    for s in sorted(sources.values(),
+                    key=lambda s: (KIND_RANK.get(s.get('kind'), 9), order.get(s['id'], 99))):
+        if s['id'] in order:
+            keep.append(s)
+            continue
+        key = (s.get('kind'), host_of(s))
+        if key in picked:
+            problems.append(f"[url-templates] {s['id']}: duplicate of {picked[key]['id']}, skipped")
+            continue
+        picked[key] = s
+        keep.append(s)
+    picked = {i: s for i, s in enumerate(keep)}
+    src_list = sorted(picked.values(),
+                      key=lambda s: (KIND_RANK.get(s.get('kind'), 9),
+                                     order.get(s['id'], 99), s.get('name', '')))
 
     DATA.mkdir(parents=True, exist_ok=True)
     meta = {
